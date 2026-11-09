@@ -8,8 +8,10 @@ allowZoom: false,
 forceDark: false,
 refreshOn: false,
 scrollBar: true,
-mobilView: true
+mobilView: true,
+background: true
 };
+
 
 
 // Fetch parameters:
