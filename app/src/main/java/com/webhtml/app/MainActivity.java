@@ -64,7 +64,6 @@ public class MainActivity extends AppCompatActivity {
 
     private ValueCallback<Uri[]> uploadMessage;
     private final static int FILE_CHOOSER_RESULT_CODE = 1;
-    private DownloadHelper downloadHelper;
 
     private final static int LOCATION_PERMISSION_REQUEST_CODE = 100;
     private final static int MEDIA_PERMISSION_REQUEST_CODE = 101;
@@ -99,8 +98,13 @@ public class MainActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // 1. Donji WebView (Glavni sadržaj) sa PullRefresh omotačem
-        webView = new KeepAliveWebView(this);
+        // 1. Donji WebView (Glavni sadržaj) - uslovno koristimo KeepAlive ako je background true
+        if (background) {
+            webView = new KeepAliveWebView(this);
+        } else {
+            webView = new WebView(this);
+        }
+        
         webView.setBackgroundColor(Color.parseColor("#070707"));
         webView.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -108,22 +112,25 @@ public class MainActivity extends AppCompatActivity {
 
         // Primena PullRefresh-a ISKLJUČIVO na glavni WebView
         if (refreshOn) {
-        // Ako je uključeno u config-u, pakujemo webView u PullRefresh
-        PullRefresh pullRefreshHelper = new PullRefresh(this, webView);
-        SwipeRefreshLayout refreshLayout = pullRefreshHelper.setup(
-        new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        );
-        rootLayout.addView(refreshLayout);
+            PullRefresh pullRefreshHelper = new PullRefresh(this, webView);
+            SwipeRefreshLayout refreshLayout = pullRefreshHelper.setup(
+                new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            );
+            rootLayout.addView(refreshLayout);
         } else {
-        // Ako je isključeno, dodajemo čist webView direktno na root layout
-        rootLayout.addView(webView, new FrameLayout.LayoutParams(
-        ViewGroup.LayoutParams.MATCH_PARENT, 
-        ViewGroup.LayoutParams.MATCH_PARENT
-        ));
+            rootLayout.addView(webView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ));
         }
 
-        // 2. Gornji WebView (Učitava menu.html OBAVEZNO sa ?menu=true parametrom)
-        overlayWebView = new KeepAliveWebView(this);
+        // 2. Gornji WebView (Učitava menu.html) - uslovno KeepAlive ako je background true
+        if (background) {
+            overlayWebView = new KeepAliveWebView(this);
+        } else {
+            overlayWebView = new WebView(this);
+        }
+
         overlayWebView.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -194,12 +201,10 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setBuiltInZoomControls(allowZoom);
         webSettings.setDisplayZoomControls(false);
 
-        // Set mobile-View or desktop-View..
         boolean setView = !mobilView; 
         webSettings.setLoadWithOverviewMode(setView);
         webSettings.setUseWideViewPort(setView);
 
-        // Show or hide scrollBar..
         webView.setVerticalScrollBarEnabled(scrollBar);
         webView.setHorizontalScrollBarEnabled(scrollBar);
 
@@ -352,50 +357,51 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
 
-@Override
-public void onPageFinished(WebView view, String url) {
-    super.onPageFinished(view, url);
-    
-    if (view == webView) {
-        if (url != null && url.startsWith("file://")) {
-            view.evaluateJavascript("window.webhtml = true;", null);
-        }
-        
-        // AGRESIVNA JS ZAŠTITA ZA POZADINSKU REPRODUKCIJU
-        String antiPauseJs = 
-    "(function() {" +
-    "   try {" +
-    "       Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });" +
-    "       Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });" +
-    "       Object.defineProperty(document, 'webkitHidden', { get: function() { return false; }, configurable: true });" +
-    "       Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });" +
-    "       " +
-    "       window.addEventListener('visibilitychange', function(e) { e.stopImmediatePropagation(); }, true);" +
-    "       document.addEventListener('visibilitychange', function(e) { e.stopImmediatePropagation(); }, true);" +
-    "       window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);" +
-    "       window.addEventListener('pagehide', function(e) { e.stopImmediatePropagation(); }, true);" +
-    "       " +
-    "       setInterval(function() {" +
-    "           if (document.hidden) {" +
-    "               Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });" +
-    "           }" +
-    "           if (document.visibilityState !== 'visible') {" +
-    "               Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });" +
-    "           }" +
-    "           // Agresivno tražimo video/audio elemente i ako su pauzirani a trebalo bi da sviraju, teramo ih da nastave" +
-    "           var videos = document.querySelectorAll('video, audio');" +
-    "           for(var i=0; i<videos.length; i++) {" +
-    "               if(videos[i].paused && videos[i].currentTime > 0 && !videos[i].ended && videos[i].readyState > 2) {" +
-    "                   videos[i].play().catch(function(e){});" +
-    "               }" +
-    "           }" +
-    "        }, 300);" +
-    "   } catch(err) {}" +
-    "})();";
-            
-        view.evaluateJavascript(antiPauseJs, null);
-    }
-}
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                
+                if (view == webView) {
+                    if (url != null && url.startsWith("file://")) {
+                        view.evaluateJavascript("window.webhtml = true;", null);
+                    }
+                    
+                    // AGRESIVNA JS ZAŠTITA - POKREĆE SE ISKLJUČIVO AKO JE background: true
+                    if (background) {
+                        String antiPauseJs = 
+                            "(function() {" +
+                            "   try {" +
+                            "       Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });" +
+                            "       Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });" +
+                            "       Object.defineProperty(document, 'webkitHidden', { get: function() { return false; }, configurable: true });" +
+                            "       Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });" +
+                            "       " +
+                            "       window.addEventListener('visibilitychange', function(e) { e.stopImmediatePropagation(); }, true);" +
+                            "       document.addEventListener('visibilitychange', function(e) { e.stopImmediatePropagation(); }, true);" +
+                            "       window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);" +
+                            "       window.addEventListener('pagehide', function(e) { e.stopImmediatePropagation(); }, true);" +
+                            "       " +
+                            "       setInterval(function() {" +
+                            "           if (document.hidden) {" +
+                            "               Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });" +
+                            "           }" +
+                            "           if (document.visibilityState !== 'visible') {" +
+                            "               Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });" +
+                            "           }" +
+                            "           var videos = document.querySelectorAll('video, audio');" +
+                            "           for(var i=0; i<videos.length; i++) {" +
+                            "               if(videos[i].paused && videos[i].currentTime > 0 && !videos[i].ended && videos[i].readyState > 2) {" +
+                            "                   videos[i].play().catch(function(e){});" +
+                            "               }" +
+                            "           }" +
+                            "        }, 500);" +
+                            "   } catch(err) {}" +
+                            "})();";
+                            
+                        view.evaluateJavascript(antiPauseJs, null);
+                    }
+                }
+            }
             
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -550,13 +556,12 @@ public void onPageFinished(WebView view, String url) {
             }
         });
 
-
-if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-    if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-        androidx.core.app.ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 102);
-    }
-}
-        
+        // Traženje dozvole za notifikacije na Androidu 13+ ISKLJUČIVO ako je background uključen
+        if (background && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                androidx.core.app.ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 102);
+            }
+        }
 
         if (startURL != null && !startURL.trim().isEmpty() && !startURL.startsWith("file:///")) {
             webView.loadUrl(startURL);
@@ -597,7 +602,7 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             scrollBar = parseBoolean(jsContent, "scrollBar", true);
             mobilView = parseBoolean(jsContent, "mobilView", true);
             background = parseBoolean(jsContent, "background", false);
-                        
+                    
         } catch (Exception e) {
             copyAssetToFile("appConfig.js", configFile);
             loadConfigFromInternalStorage();
@@ -774,19 +779,25 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
     }
 
     @Override
-protected void onStop() {
-    super.onStop();
-    // Namerno ostavljamo prazno da Android / Chromium ne pomisle
-    // da treba da ugase medijske resurse kada Activity ode u pozadinu.
-}
+    protected void onStop() {
+        super.onStop();
+        // Ako je background uključen, ostavljamo prazno da sprečimo Chromium da ugasi resurse
+        if (!background) {
+            // Originalno ponašanje
+        }
+    }
 
     @Override
-protected void onPause() {
-    super.onPause();
-    // NE POZIVAMO webView.onPause() da ne bismo uspavali JavaScript i medije!
-    // Umesto toga, samo obaveštavamo sistem da je Activity pauziran, ali WebView drži tok.
-    if (overlayWebView != null) overlayWebView.onPause();
-}
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) {
+            if (!background) {
+                webView.onPause(); // Radi po starom ako je false
+            }
+            // Ako je true, preskačemo webView.onPause() da mediji nastave rad
+        }
+        if (overlayWebView != null) overlayWebView.onPause();
+    }
 
     @Override
     protected void onResume() {
@@ -795,18 +806,22 @@ protected void onPause() {
         if (overlayWebView != null) overlayWebView.onResume();
     }
 
-@Override
-protected void onUserLeaveHint() {
-    super.onUserLeaveHint();
-    
-    // Kada korisnik pritisne Home taster, palimo Foreground servis da drži aplikaciju budnom
-    Intent serviceIntent = new Intent(this, MediaService.class);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        startForegroundService(serviceIntent);
-    } else {
-        startService(serviceIntent);
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        
+        // Palimo Foreground servis ISKLJUČIVO ako je background: true
+        if (background) {
+            try {
+                Intent serviceIntent = new Intent(this, MediaService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent);
+                } else {
+                    startService(serviceIntent);
+                }
+            } catch (Exception ignored) {}
+        }
     }
-}
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
