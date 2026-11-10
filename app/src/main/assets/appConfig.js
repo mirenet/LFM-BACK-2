@@ -9,7 +9,7 @@ forceDark: false,
 refreshOn: false,
 scrollBar: true,
 mobilView: true,
-background: true
+background: false
 };
 
 
