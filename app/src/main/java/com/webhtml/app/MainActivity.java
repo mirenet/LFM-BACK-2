@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private WebView overlayWebView; 
     private MenuControler menuControler;
+    private DownloadHelper downloadHelper;
 
     private ValueCallback<Uri[]> uploadMessage;
     private final static int FILE_CHOOSER_RESULT_CODE = 1;
