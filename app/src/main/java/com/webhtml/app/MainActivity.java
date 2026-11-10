@@ -57,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean refreshOn = false;
     private boolean scrollBar = true;
     private boolean mobilView = true;
+    private boolean background = false;
     private WebView webView;
     private WebView overlayWebView; 
     private MenuControler menuControler;
@@ -595,6 +596,7 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             refreshOn = parseBoolean(jsContent, "refreshOn", false);
             scrollBar = parseBoolean(jsContent, "scrollBar", true);
             mobilView = parseBoolean(jsContent, "mobilView", true);
+            background = parseBoolean(jsContent, "background", false);
                         
         } catch (Exception e) {
             copyAssetToFile("appConfig.js", configFile);
